@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>عام دراسي جديد</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lalezar&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F3F7FC;
+    --grid: #D3E0F0;
+    --ink: #14213D;
+    --muted: #4A5A78;
+    --hl: #FFD23F;
+    --pen: #E63946;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background-color: var(--paper);
+    /* ورق مربعات كالدفتر */
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: "Tajawal", "Segoe UI", Tahoma, system-ui, sans-serif;
+    font-size: 18px;
+    line-height: 1.9;
+  }
+  .sr {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  :focus-visible { outline: 3px solid var(--pen); outline-offset: 3px; }
+
+  .wrap {
+    max-width: 860px;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: 32px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 34px;
+  }
+
+  #stage {
+    display: block;
+    width: 100%;
+    height: clamp(210px, 38vw, 330px);
+    touch-action: pan-y;
+    cursor: crosshair;
+  }
+  .hint {
+    margin: -22px 0 0;
+    text-align: center;
+    font-size: .9rem;
+    color: var(--muted);
+  }
+
+  .write { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .write label { font-size: .95rem; color: var(--muted); }
+  .write input {
+    width: min(100%, 420px);
+    border: 0;
+    border-bottom: 3px solid var(--ink);
+    background: transparent;
+    padding: 6px 4px;
+    text-align: center;
+    font: 500 1.5rem/1.6 "Tajawal", sans-serif;
+    color: var(--ink);
+    border-radius: 0;
+  }
+  .write input::placeholder { color: #8C9AB5; font-weight: 400; }
+  .write input:focus-visible { outline: 0; border-bottom-color: var(--pen); }
+
+  .tip-area {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 16px;
+    align-items: start;
+    max-width: 640px;
+    margin-inline: auto;
+    width: 100%;
+  }
+  .check { width: 44px; height: 44px; margin-top: 4px; }
+  .check path {
+    fill: none; stroke: var(--pen); stroke-width: 5;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .tip { margin: 0; font-size: 1.4rem; font-weight: 500; line-height: 2.1; }
+  .tip.in { animation: pop .28s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  mark {
+    color: inherit;
+    padding: 0 .2em;
+    background: linear-gradient(transparent 50%, var(--hl) 50%, var(--hl) 92%, transparent 92%);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  #more {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 12px;
+    padding: 9px 22px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--ink);
+    color: var(--paper);
+    font: 700 1rem "Tajawal", sans-serif;
+    cursor: pointer;
+  }
+  #more:hover { background: #22345f; }
+
+  #credit {
+    margin-top: auto;
+    text-align: center;
+    font-size: .9rem;
+    color: var(--muted);
+  }
+  #credit[hidden] { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tip.in { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1 class="sr">عام دراسي جديد</h1>
+
+  <canvas id="stage" role="img" aria-label="عام دراسي جديد"></canvas>
+  <p class="hint">مرّر الفأرة أو إصبعك فوق الكلمات لتتناثر، واضغط عليها لتنفجر، ثم اتركها لتعود.</p>
+
+  <section class="write">
+    <label for="msg">اكتب أي كلمة أو اسم ليتحوّل إلى نقاط</label>
+    <input id="msg" type="text" maxlength="22" placeholder="مثال: اسم معلّمك" autocomplete="off">
+  </section>
+
+  <section class="tip-area" aria-live="polite">
+    <svg class="check" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 26l12 12L41 9"/></svg>
+    <p class="tip" id="tipBox"><mark id="tip"></mark></p>
+    <button id="more" type="button">نصيحة دراسية أخرى</button>
+  </section>
+
+  <footer id="credit" hidden></footer>
+</main>
+
+<script>
+"use strict";
+
+/* ====== عدّل هذين السطرين فقط ====== */
+const MY_NAME = "";                    // اكتب اسمك هنا ليظهر أسفل الصفحة
+const DEFAULT_TEXT = "عام دراسي جديد"; // الكلمة التي تظهر في البداية
+/* =================================== */
+
+const TIPS = [
+  "ذاكر على دفعات قصيرة: خمس وعشرون دقيقة تركيز، ثم خمس دقائق راحة.",
+  "اشرح الدرس بصوت عالٍ كأنك تعلّمه لصديق؛ ما لا تستطيع شرحه لم تفهمه بعد.",
+  "نم مبكراً قبل الاختبار، فالدماغ يثبّت المعلومات أثناء النوم.",
+  "اكتب أسئلتك بجانب كل درس، وأجب عنها بعد يومين دون النظر إلى الكتاب.",
+  "ابدأ بالمادة الأصعب حين يكون تركيزك في أعلى مستوى.",
+  "رتّب حقيبتك في المساء، فالصباح الهادئ يبدأ من ليلة منظّمة.",
+  "اسأل حين لا تفهم؛ السؤال الجيد يفيد الصف كله.",
+  "قسّم المشروع الكبير إلى خطوات صغيرة، وضع لكل خطوة موعداً.",
+  "راجع ما تعلّمته اليوم لخمس دقائق قبل النوم.",
+  "أبعد هاتفك عن مكتبك أثناء المذاكرة؛ وجوده وحده يشتّت الانتباه.",
+  "خصّص لكل مادة لوناً أو دفتراً، فالتنظيم يوفّر عليك وقتاً كبيراً.",
+  "الخطأ جزء من التعلّم؛ دوّن أخطاءك وراجعها قبل الاختبار."
+];
+
+const $ = (id) => document.getElementById(id);
+const canvas = $("stage");
+const ctx = canvas.getContext("2d");
+const off = document.createElement("canvas");
+const octx = off.getContext("2d", { willReadFrequently: true });
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const FAMILY = 'Lalezar, Tajawal, "Segoe UI", Tahoma, sans-serif';
+
+const INK = "#14213D";
+const HIGHLIGHT = "#F2B705";
+
+let W = 0, H = 0, dpr = 1, dotR = 2;
+let parts = [];
+let text = DEFAULT_TEXT;
+let running = false;
+const mouse = { x: -9999, y: -9999, power: 0, base: 0 };
+
+function fitCanvas() {
+  const r = canvas.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(1, Math.round(r.width * dpr));
+  H = Math.max(1, Math.round(r.height * dpr));
+  canvas.width = off.width = W;
+  canvas.height = off.height = H;
+  mouse.base = 7 * dpr;
+  mouse.power = mouse.base;
+}
+
+/* تحويل النص إلى نقاط: نرسمه على لوحة مخفية ثم نأخذ عيّنات من البكسلات */
+function sampleTargets() {
+  octx.clearRect(0, 0, W, H);
+  octx.fillStyle = "#000";
+  octx.textAlign = "center";
+  octx.textBaseline = "middle";
+  octx.direction = "rtl";
+
+  let size = H * 0.66;
+  octx.font = size + "px " + FAMILY;
+  const maxW = W * 0.9;
+  const w = octx.measureText(text).width;
+  if (w > maxW) {
+    size *= maxW / w;
+    octx.font = size + "px " + FAMILY;
+  }
+  octx.fillText(text, W / 2, H / 2 + size * 0.04);
+
+  const data = octx.getImageData(0, 0, W, H).data;
+  let gap = Math.max(3 * dpr, size / 30);
+  let pts;
+  for (;;) {                       // نزيد المسافة إن كثرت النقاط حفاظاً على السرعة
+    pts = [];
+    for (let y = 0; y < H; y += gap) {
+      for (let x = 0; x < W; x += gap) {
+        if (data[(Math.floor(y) * W + Math.floor(x)) * 4 + 3] > 128) pts.push(x, y);
+      }
+    }
+    if (pts.length / 2 <= 3200) break;
+    gap *= 1.15;
+  }
+  dotR = Math.max(1.2 * dpr, gap * 0.3);
+
+  const n = pts.length / 2;
+  while (parts.length < n) {
+    parts.push({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: 0, vy: 0, tx: 0, ty: 0, hi: Math.random() < 0.12
+    });
+  }
+  parts.length = n;
+  for (let i = 0; i < n; i++) { parts[i].tx = pts[i * 2]; parts[i].ty = pts[i * 2 + 1]; }
+
+  canvas.setAttribute("aria-label", text);
+  if (reduceMotion) {
+    parts.forEach((p) => { p.x = p.tx; p.y = p.ty; });
+    draw();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  for (const pass of [false, true]) {
+    ctx.fillStyle = pass ? HIGHLIGHT : INK;
+    ctx.beginPath();
+    for (const p of parts) {
+      if (p.hi !== pass) continue;
+      ctx.moveTo(p.x + dotR, p.y);
+      ctx.arc(p.x, p.y, dotR, 0, 6.2832);
+    }
+    ctx.fill();
+  }
+}
+
+function tick() {
+  const R = 95 * dpr, R2 = R * R;
+  for (const p of parts) {
+    let ax = (p.tx - p.x) * 0.055;
+    let ay = (p.ty - p.y) * 0.055;
+    const dx = p.x - mouse.x, dy = p.y - mouse.y, d2 = dx * dx + dy * dy;
+    if (d2 < R2 && d2 > 0.01) {
+      const d = Math.sqrt(d2), f = (1 - d / R) * mouse.power;
+      ax += (dx / d) * f;
+      ay += (dy / d) * f;
+    }
+    p.vx = (p.vx + ax) * 0.84;
+    p.vy = (p.vy + ay) * 0.84;
+    p.x += p.vx;
+    p.y += p.vy;
+  }
+  mouse.power += (mouse.base - mouse.power) * 0.06;   // تهدأ قوة الانفجار تدريجياً
+  draw();
+  requestAnimationFrame(tick);
+}
+
+async function loadFont() {
+  try {
+    if (document.fonts && document.fonts.load) {
+      await Promise.race([
+        document.fonts.load("100px Lalezar", text),
+        new Promise((res) => setTimeout(res, 1500))
+      ]);
+    }
+  } catch { /* نكمل بالخط الاحتياطي */ }
+}
+
+async function retarget() {
+  await loadFont();
+  sampleTargets();
+}
+
+/* ---------- التفاعل ---------- */
+function setMouse(e) {
+  const r = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - r.left) * dpr;
+  mouse.y = (e.clientY - r.top) * dpr;
+}
+if (!reduceMotion) {
+  canvas.addEventListener("pointermove", setMouse);
+  canvas.addEventListener("pointerdown", (e) => { setMouse(e); mouse.power = 32 * dpr; });
+  canvas.addEventListener("pointerleave", () => { mouse.x = mouse.y = -9999; });
+}
+
+let typing = 0;
+$("msg").addEventListener("input", (e) => {
+  clearTimeout(typing);
+  typing = setTimeout(() => {
+    text = e.target.value.trim() || DEFAULT_TEXT;
+    retarget();
+  }, 160);
+});
+
+let resizing = 0;
+window.addEventListener("resize", () => {
+  clearTimeout(resizing);
+  resizing = setTimeout(() => { fitCanvas(); sampleTargets(); }, 200);
+});
+
+/* ---------- النصائح ---------- */
+let lastTip = -1;
+function nextTip() {
+  let i;
+  do { i = Math.floor(Math.random() * TIPS.length); } while (i === lastTip && TIPS.length > 1);
+  lastTip = i;
+  $("tip").textContent = TIPS[i];
+  const box = $("tipBox");
+  box.classList.remove("in");
+  void box.offsetWidth;            // لإعادة تشغيل الحركة
+  box.classList.add("in");
+}
+$("more").addEventListener("click", nextTip);
+
+/* ---------- البداية ---------- */
+if (MY_NAME) {
+  const c = $("credit");
+  c.textContent = "برمجة: " + MY_NAME;
+  c.hidden = false;
+}
+nextTip();
+fitCanvas();
+retarget().then(() => {
+  if (!reduceMotion && !running) { running = true; tick(); }
+});
+</script>
+</body>
+</html>
